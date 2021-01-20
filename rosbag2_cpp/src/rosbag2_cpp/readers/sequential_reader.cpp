@@ -50,7 +50,25 @@ std::vector<std::string> resolve_relative_paths(
     if (path.is_absolute()) {
       continue;
     }
-    file = (base_path / path).string();
+    if (version == 4) {
+      /*
+       * Rosbag2 was released with incorrect relative file naming for compressed bags
+       * which were written called v4, using v3 logic: "- base/bagfile" instead of "- bagfile"
+       * Because we have no way to check whether the bag was written correctly,
+       * check for the existence of the prefixed file as a fallback.
+       */
+      auto resolved = base_path / path;
+      if (!resolved.exists()) {
+        auto base_stripped = path.filename();
+        resolved = base_path / base_stripped;
+        rcpputils::require_true(
+          resolved.exists(),
+          "Unable to resolve relative file path either as a V3 or V4 relative path");
+      }
+      file = resolved.string();
+    } else {
+      file = (base_path / path).string();
+    }
   }
 
   return relative_files;
